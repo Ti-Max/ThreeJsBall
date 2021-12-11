@@ -41,6 +41,9 @@ function init() {
 	createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 19, 6);
 }
 
+/**
+ * Setup ligths in the scene
+ */
 function createLights(){
 	//ambient light
 	const ambientLight = new THREE.AmbientLight(0x444444);
@@ -53,6 +56,18 @@ function createLights(){
 	scene.add(directionalLight);
 }
 
+/**
+ * 
+ * @param {float} posX platform`s x position 
+ * @param {float} posY platform`s y position
+ * @param {float} posZ platform`s z position
+ * @param {float} sX platform`s x size
+ * @param {flaot} sY platform`s y size
+ * @param {float} sZ platform`s z size
+ * @param {float} holeRadius radius of the hole
+ * @param {float} holeX x position of the hole
+ * @param {float} holeZ u position of the hole
+ */
 function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX, holeZ){
 
 	// Making platform by "drawing" it like 2d
@@ -88,7 +103,9 @@ function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX,
 	scene.add(mesh);
 }
 
-// Call every frame
+/**
+ * Call every frame
+**/ 
 function update(time) {
 
 	orbitControl.update();
@@ -97,7 +114,9 @@ function update(time) {
 	requestAnimationFrame( update );
 }
 
-// Calls when window resiezes
+/**
+ * Calls when window resiezes
+**/
 function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
@@ -105,14 +124,20 @@ function onWindowResize() {
 	renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
-// Calls when a button is pressed
+/**
+ *  Calls when a button is pressed
+**/
 function onKeyPressed(event){
 	if(event.key === "1"){
+		getRandom()
 		lastPlatformPos -= 10;
-		createPlatformWithHole(/*pos*/0, lastPlatformPos, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ getRandom(1, 19), getRandom(1, 19));
-		console.log(getRandom(1, 19));
+		createPlatfoФrmWithHole(/*pos*/0, lastPlatformPos, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ getRandom(1, 19), getRandom(1, 19));
 	}
 }
+
+/**
+  * Returns random integer between min and max (included min and max)
+**/
 function getRandom(min, max){
 	return Math.floor(Math.random() * (max - min +1) ) + min;
 }
