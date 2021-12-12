@@ -1,18 +1,33 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CANNON from 'cannon-es'
+import { World } from 'cannon-es';
+import { DirectionalLightShadow } from 'three';
 
+//ThreeJS
 let scene; 
 let camera;
 let renderer;
 let orbitControl;
 
+
+//CANNON physics
+let world;
+const timeStep = 1/120;
+
+/** 
+ * ThreeJs objects with attached physics CANNON object
+ * If you want to visualize a physics object, add its reference to three.js object`s userdata and push to rigidbodies array
+ */ 
+const rigidBodies = [];
+
+const sphereRadius = 1;
+
+let lastTime = 0;
 let lastPlatformPos = 0;
 
-const world = new CANNON.World({
-	gravity: new CANNON.Vec3(0, -9.82, 0), // m/s²
-  })
-
+// Order is important!!
+initPhysics();
 init();
 update();
 
@@ -23,22 +38,88 @@ function init() {
 	camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 	renderer = new THREE.WebGLRenderer({antialias : true});
 	orbitControl = new OrbitControls(camera, renderer.domElement);
-
+	
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	window.addEventListener( 'resize', onWindowResize );
 	document.addEventListener('keypress', onKeyPressed)
-	scene.background = new THREE.Color(0xEEEEEE);
-
-	//origin
-	const origin = new THREE.Mesh( new THREE.BoxGeometry(1.2), new THREE.MeshBasicMaterial( { color: 0x00ff00 } ) );
-	scene.add( origin );
+	scene.background = new THREE.Color(0x99AAEE);
+	
 	camera.position.set(0, 10, 20);
-
+	
 	createLights();
+	createBall();
 
 	//creates oplatform with hole in it between 1 to 19 if size is 20
 	createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 19, 6);
+}
+
+function initPhysics(){
+	//world
+	world = new CANNON.World({
+		gravity: new CANNON.Vec3(0, -9.82, 0), // m/s²
+	});
+	
+	// Create a static plane for the ground
+	const groundBody = new CANNON.Body({
+		type: CANNON.Body.STATIC, 
+		shape: new CANNON.Plane(),
+	});
+	groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // make it face up
+	groundBody.position.set(0, 0.25, 0);
+	world.addBody(groundBody);
+
+}
+
+function createBall(){
+	// Create physics ball 
+	const sphereBody = new CANNON.Body({
+		mass: 5, // kg
+		shape: new CANNON.Sphere(sphereRadius),
+	});
+	sphereBody.userdata
+	sphereBody.position.set(0, 10, 0);
+	world.addBody(sphereBody);
+
+	// Create Three.js ball
+	const sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(sphereRadius), new THREE.MeshPhongMaterial);
+	scene.add(sphereMesh);
+
+	// Connect them
+	sphereMesh.userData = sphereBody;
+	sphereBody.applyImpulse(new CANNON.Vec3(10, 0, 0));
+	rigidBodies.push(sphereMesh);
+}
+/**
+ * Call every frame
+ * @param {number} time time since start in milliseconds
+**/ 
+function update(time) {
+
+	const deltaTime = (time - lastTime) / 1000;
+	updatePhysics(deltaTime);
+	lastTime = time;
+
+	orbitControl.update();
+	renderer.render(scene, camera);
+	
+	requestAnimationFrame( update );
+}
+
+function updatePhysics(deltaTime){
+	
+	if (!lastTime) {
+	  world.step(timeStep);
+	} else {
+	  world.step(timeStep, deltaTime);
+	}
+
+	// Sync visual objects
+	for(let i = 0; i < rigidBodies.length; i++){
+		const physicsObj = rigidBodies[i].userData;
+		rigidBodies[i].position.copy(physicsObj.position);
+		rigidBodies[i].quaternion.copy(physicsObj.quaternion);
+	}	
 }
 
 /**
@@ -103,16 +184,6 @@ function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX,
 	scene.add(mesh);
 }
 
-/**
- * Call every frame
-**/ 
-function update(time) {
-
-	orbitControl.update();
-	renderer.render(scene, camera);
-
-	requestAnimationFrame( update );
-}
 
 /**
  * Calls when window resiezes
@@ -131,7 +202,7 @@ function onKeyPressed(event){
 	if(event.key === "1"){
 		getRandom()
 		lastPlatformPos -= 10;
-		createPlatfoФrmWithHole(/*pos*/0, lastPlatformPos, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ getRandom(1, 19), getRandom(1, 19));
+		createPlatformWithHole(/*pos*/0, lastPlatformPos, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ getRandom(1, 19), getRandom(1, 19));
 	}
 }
 
