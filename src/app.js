@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CANNON from 'cannon-es'
 import { World } from 'cannon-es';
@@ -21,7 +22,18 @@ const timeStep = 1/120;
  */ 
 const rigidBodies = [];
 
-const sphereRadius = 1;
+let sphereBody;
+const sphereRadius = 0.5;
+
+const ballSpeed = 5;
+
+//Input
+const movementInput = {
+	up : false,
+	down : false,
+	right : false, 
+	left : false
+};
 
 let lastTime = 0;
 let lastPlatformPos = 0;
@@ -42,7 +54,8 @@ function init() {
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	window.addEventListener( 'resize', onWindowResize );
-	document.addEventListener('keypress', onKeyPressed)
+	document.addEventListener('keydown', onKeyDown);
+	document.addEventListener('keyup', onKeyUp);
 	scene.background = new THREE.Color(0x99AAEE);
 	
 	camera.position.set(0, 10, 20);
@@ -51,7 +64,7 @@ function init() {
 	createBall();
 
 	//creates oplatform with hole in it between 1 to 19 if size is 20
-	createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 19, 6);
+	createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 1, 1);
 }
 
 function initPhysics(){
@@ -59,21 +72,11 @@ function initPhysics(){
 	world = new CANNON.World({
 		gravity: new CANNON.Vec3(0, -9.82, 0), // m/s²
 	});
-	
-	// Create a static plane for the ground
-	const groundBody = new CANNON.Body({
-		type: CANNON.Body.STATIC, 
-		shape: new CANNON.Plane(),
-	});
-	groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // make it face up
-	groundBody.position.set(0, 0.25, 0);
-	world.addBody(groundBody);
-
 }
 
 function createBall(){
 	// Create physics ball 
-	const sphereBody = new CANNON.Body({
+	sphereBody = new CANNON.Body({
 		mass: 5, // kg
 		shape: new CANNON.Sphere(sphereRadius),
 	});
@@ -87,14 +90,16 @@ function createBall(){
 
 	// Connect them
 	sphereMesh.userData = sphereBody;
-	sphereBody.applyImpulse(new CANNON.Vec3(10, 0, 0));
+	sphereBody.angularDamping = 0.9;
 	rigidBodies.push(sphereMesh);
 }
+
 /**
  * Call every frame
  * @param {number} time time since start in milliseconds
 **/ 
 function update(time) {
+	doMovement();
 
 	const deltaTime = (time - lastTime) / 1000;
 	updatePhysics(deltaTime);
@@ -150,7 +155,7 @@ function createLights(){
  * @param {float} holeZ u position of the hole
  */
 function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX, holeZ){
-
+	
 	// Making platform by "drawing" it like 2d
 	const rectShape = new THREE.Shape()
 		.moveTo(0, 0)
@@ -173,17 +178,61 @@ function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX,
 	};
 	const geometry = new THREE.ExtrudeBufferGeometry(rectShape, extrudeSettings);
 
+	// making indecies in bufferGeobetry 
+	const indexedGeometry = mergeVertices(geometry);
+	
 	// center and flip platform
-	geometry.center();
-	geometry.rotateX(Math.PI * -0.5);
+	indexedGeometry.center();
+	indexedGeometry.rotateX(Math.PI * -0.5);
 
 	// Making an THREE.Object3D and adding to the scene
 	const material = new THREE.MeshPhongMaterial({color: 0xFFFFFF});
-	const mesh = new THREE.Mesh(geometry, material);
-	mesh.position.set(posX, posY, posZ);
+	const mesh = new THREE.Mesh(indexedGeometry, material);
 	scene.add(mesh);
+	
+	//physics mesh
+	const trimeshShape = new CANNON.Trimesh(indexedGeometry.getAttribute('position').array, indexedGeometry.index.array);
+	const physicsBody = new CANNON.Body({
+		type: CANNON.Body.STATIC, 
+		shape: trimeshShape,
+	});
+	world.addBody(physicsBody);
+
+	// set position
+	mesh.position.set(posX, posY, posZ);
+	physicsBody.position.set(posX, posY, posZ);
+	
+	//link them (not necessarily here since not rigidbody)
+	mesh.userData = trimeshShape;
 }
 
+function doMovement(){
+
+	const direction = new CANNON.Vec3(0, 0, 0);
+	if(movementInput.up){
+		direction.z  = -ballSpeed;
+	}else if(movementInput.down){
+		direction.z  = ballSpeed;
+	}
+
+	if(movementInput.right){
+		direction.x  = ballSpeed;
+	}else if(movementInput.left){
+		direction.x  = -ballSpeed;
+	}
+
+	if(direction.x != 0 && direction.z != 0){
+		direction.normalize();
+		sphereBody.angularVelocity.x = direction.z * ballSpeed;
+		sphereBody.angularVelocity.z = -direction.x * ballSpeed;
+
+	}
+
+	console.log(sphereBody.angularVelocity);
+	
+	// sphereBody.velocity.x = direction.x * ballSpeed;
+	// sphereBody.velocity.z = direction.z * ballSpeed;
+}
 
 /**
  * Calls when window resiezes
@@ -196,13 +245,40 @@ function onWindowResize() {
 }
 
 /**
- *  Calls when a button is pressed
+ *  Calls when a button is pressed or repeat
 **/
-function onKeyPressed(event){
+function onKeyDown(event){
 	if(event.key === "1"){
 		getRandom()
 		lastPlatformPos -= 10;
 		createPlatformWithHole(/*pos*/0, lastPlatformPos, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ getRandom(1, 19), getRandom(1, 19));
+	}
+
+	//movement
+	if(event.key === "s"){
+		movementInput.down = true;
+	} else if(event.key === "w"){
+		movementInput.up = true;
+	}
+	
+	if(event.key === "d"){
+		movementInput.right = true;
+	} else if(event.key === "a"){
+		movementInput.left = true;
+	}
+}
+function onKeyUp(event){
+	//movement
+	if(event.key === "s"){
+		movementInput.down = false;
+	} else if(event.key === "w"){
+		movementInput.up = false;
+	}
+	
+	if(event.key === "d"){
+		movementInput.right = false;
+	} else if(event.key === "a"){
+		movementInput.left = false;
 	}
 }
 
