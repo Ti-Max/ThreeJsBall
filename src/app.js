@@ -2,14 +2,19 @@ import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CANNON from 'cannon-es'
-import { World } from 'cannon-es';
-import { DirectionalLightShadow } from 'three';
+import GUI from 'lil-gui'; 
 
 //ThreeJS
 let scene; 
 let camera;
 let renderer;
 let orbitControl;
+
+
+const backroundColor = new THREE.Color(0xb9b8d3);
+const ballColor = new THREE.Color(0x3066BE);
+const platformColor = new THREE.Color(0x4C956C);
+
 
 
 //CANNON physics
@@ -25,7 +30,7 @@ const rigidBodies = [];
 let sphereBody;
 const sphereRadius = 0.5;
 
-const ballSpeed = 5;
+let pointLight, pointLight2;
 
 //Input
 const movementInput = {
@@ -37,6 +42,15 @@ const movementInput = {
 
 let lastTime = 0;
 let lastPlatformPos = 0;
+const distanceBetweenPlatforms = 15;
+
+//GUI
+const gui = new GUI();
+
+const settings = {
+	ballSpeed : 100,
+	cameraHeight : 1
+}
 
 // Order is important!!
 initPhysics();
@@ -49,28 +63,38 @@ function init() {
 	scene = new THREE.Scene();
 	camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 500 );
 	renderer = new THREE.WebGLRenderer({antialias : true});
+
 	orbitControl = new OrbitControls(camera, renderer.domElement);
-	
+	orbitControl.enableDamping = true;
+	orbitControl.dampingFactor = 0.15;
+	orbitControl.maxPolarAngle = 1;
+	orbitControl.minPolarAngle = 1;
+	orbitControl.maxDistance = 25;
+	orbitControl.minDistance = 5;
+	orbitControl.enablePan = false;
+
+	renderer.shadowMap.enabled = true;
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.body.appendChild( renderer.domElement );
 	window.addEventListener( 'resize', onWindowResize );
 	document.addEventListener('keydown', onKeyDown);
 	document.addEventListener('keyup', onKeyUp);
-	scene.background = new THREE.Color(0x99AAEE);
+	scene.background = backroundColor;
 	
 	camera.position.set(0, 10, 20);
 	
-	createLights();
+	// Order matters!!
 	createBall();
-
+	createLights();
+	createGui();
 	//creates oplatform with hole in it between 1 to 19 if size is 20
-	createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 1, 1);
+	createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 8, 8);
 }
 
 function initPhysics(){
 	//world
 	world = new CANNON.World({
-		gravity: new CANNON.Vec3(0, -9.82, 0), // m/s²
+		gravity: new CANNON.Vec3(0, -9.82 * 2, 0), // m/s²
 	});
 }
 
@@ -85,12 +109,13 @@ function createBall(){
 	world.addBody(sphereBody);
 
 	// Create Three.js ball
-	const sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(sphereRadius), new THREE.MeshPhongMaterial);
+	const sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(sphereRadius), new THREE.MeshPhongMaterial({color : ballColor}));
+	sphereMesh.castShadow = true;
 	scene.add(sphereMesh);
 
 	// Connect them
 	sphereMesh.userData = sphereBody;
-	sphereBody.angularDamping = 0.9;
+	sphereBody.angularDamping = 0.995;
 	rigidBodies.push(sphereMesh);
 }
 
@@ -101,9 +126,16 @@ function createBall(){
 function update(time) {
 	doMovement();
 
+
 	const deltaTime = (time - lastTime) / 1000;
 	updatePhysics(deltaTime);
 	lastTime = time;
+
+	orbitControl.target.set(0, sphereBody.position.y, 0);
+	pointLight.position.x = camera.position.x;
+	pointLight.position.y = camera.position.y;
+	pointLight.position.z = camera.position.z;
+
 
 	orbitControl.update();
 	renderer.render(scene, camera);
@@ -127,32 +159,68 @@ function updatePhysics(deltaTime){
 	}	
 }
 
+function createGui(){
+	gui.add(settings, 'ballSpeed', 0, 1000);
+	gui.add(settings, 'cameraHeight', 0, Math.PI).onChange((value) => {
+		orbitControl.maxPolarAngle = value;
+		orbitControl.minPolarAngle = value;
+	});
+	gui.add(orbitControl, 'minDistance', 0, 50);
+	gui.add(orbitControl, 'maxDistance', 0, 50);
+
+
+
+}
+
 /**
  * Setup ligths in the scene
  */
 function createLights(){
 	//ambient light
-	const ambientLight = new THREE.AmbientLight(0x444444);
+	const ambientLight = new THREE.AmbientLight(0x555555);
 	scene.add(ambientLight);
 
-	//directional light
-	const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-	directionalLight.target.position.set(-0.5, 0, 0);
-	scene.add(directionalLight.target);
-	scene.add(directionalLight);
+	// Point light
+	pointLight = new THREE.PointLight(new THREE.Color(1, 1, 1), 1);
+	pointLight.position.x = camera.position.x;
+	pointLight.position.y = camera.position.y;
+	pointLight.position.z = camera.position.z;
+	scene.add(pointLight); 
+
+
+	
+	// //directional light
+	// directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+	// directionalLight.position.set(3,30,0);
+	// directionalLight.target.position.set(-3, 0, 0);
+	// directionalLight.castShadow = true;
+	// directionalLight.shadow.mapSize.width = 1024;
+	// directionalLight.shadow.mapSize.height = 1024;
+	
+	// directionalLight.shadow.camera.left = -10;
+	// directionalLight.shadow.camera.right = 10;
+	// directionalLight.shadow.camera.top = 10;
+	// directionalLight.shadow.camera.bottom = -10;
+	// // directionalLight.shadow.camera.near = 0.5; 
+	// // directionalLight.shadow.camera.far = 500;
+	// scene.add(directionalLight.target);
+	// scene.add(directionalLight);
+	// scene.add(new THREE.CameraHelper(directionalLight.shadow.camera));
+
+
 }
 
 /**
  * 
- * @param {float} posX platform`s x position 
- * @param {float} posY platform`s y position
- * @param {float} posZ platform`s z position
- * @param {float} sX platform`s x size
- * @param {flaot} sY platform`s y size
- * @param {float} sZ platform`s z size
- * @param {float} holeRadius radius of the hole
- * @param {float} holeX x position of the hole
- * @param {float} holeZ u position of the hole
+ * @param {number} posX platform`s x position 
+ * @param {number} posY platform`s y position
+ * @param {number} posZ platform`s z position
+ * @param {number} sX platform`s x size
+ * @param {number} sY platform`s y size
+ * @param {number} sZ platform`s z size
+ * @param {number} holeRadius radius of the hole
+ * @param {number} holeX x position of the hole
+ * @param {number} holeZ u position of the hole
  */
 function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX, holeZ){
 	
@@ -186,8 +254,11 @@ function createPlatformWithHole(posX, posY, posZ, sX, sY, sZ, holeRadius, holeX,
 	indexedGeometry.rotateX(Math.PI * -0.5);
 
 	// Making an THREE.Object3D and adding to the scene
-	const material = new THREE.MeshPhongMaterial({color: 0xFFFFFF});
+	const material = new THREE.MeshPhongMaterial({color: platformColor});
 	const mesh = new THREE.Mesh(indexedGeometry, material);
+	mesh.receiveShadow = true;
+	mesh.castShadow = true;
+
 	scene.add(mesh);
 	
 	//physics mesh
@@ -210,28 +281,27 @@ function doMovement(){
 
 	const direction = new CANNON.Vec3(0, 0, 0);
 	if(movementInput.up){
-		direction.z  = -ballSpeed;
+		direction.z  = -settings.ballSpeed;
 	}else if(movementInput.down){
-		direction.z  = ballSpeed;
+		direction.z  = settings.ballSpeed;
 	}
 
 	if(movementInput.right){
-		direction.x  = ballSpeed;
+		direction.x  = settings.ballSpeed;
 	}else if(movementInput.left){
-		direction.x  = -ballSpeed;
+		direction.x  = -settings.ballSpeed;
 	}
 
-	if(direction.x != 0 && direction.z != 0){
+	if(direction.x != 0 || direction.z != 0){
 		direction.normalize();
-		sphereBody.angularVelocity.x = direction.z * ballSpeed;
-		sphereBody.angularVelocity.z = -direction.x * ballSpeed;
-
+		// sphereBody.angularVelocity.x = direction.z * settings.ballSpeed;
+		// sphereBody.angularVelocity.z = -direction.x * settings.ballSpeed;
+		sphereBody.applyTorque(new CANNON.Vec3(direction.z * settings.ballSpeed, 0, -direction.x * settings.ballSpeed));
 	}
 
-	console.log(sphereBody.angularVelocity);
 	
-	// sphereBody.velocity.x = direction.x * ballSpeed;
-	// sphereBody.velocity.z = direction.z * ballSpeed;
+	// sphereBody.velocity.x = direction.x * settings.ballSpeed;
+	// sphereBody.velocity.z = direction.z * settings.ballSpeed;
 }
 
 /**
@@ -250,7 +320,7 @@ function onWindowResize() {
 function onKeyDown(event){
 	if(event.key === "1"){
 		getRandom()
-		lastPlatformPos -= 10;
+		lastPlatformPos -= distanceBetweenPlatforms;
 		createPlatformWithHole(/*pos*/0, lastPlatformPos, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ getRandom(1, 19), getRandom(1, 19));
 	}
 
