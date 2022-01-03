@@ -12,11 +12,11 @@ render();
 
 function addEventListeners(){
     window.addEventListener( 'resize', onWindowResize );
+    document.addEventListener('keydown', sceneManager.onKeyDown);
+	document.addEventListener('keyup', sceneManager.onKeyUp);
 }
 
 function onWindowResize (){
-    // canvas.style.width = '100%';
-	// canvas.style.height= '100%';
     canvas.width  = window.innerWidth;
 	canvas.height = window.innerHeight;
 
