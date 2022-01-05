@@ -5,7 +5,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { PMREMGenerator } from 'three/src/extras/PMREMGenerator.js'
-import {GUI} from 'lil-gui.js'
+import {GUI} from 'lil-gui'
 //ThreeJS
 let scene; 
 let camera;
@@ -32,8 +32,6 @@ const params = {
 
 init();
 update();
-
-
 
 function init() {
 	scene = new THREE.Scene();
@@ -81,72 +79,63 @@ function createGUI(){
 				gui.addColor( params, 'color' )
 					.onChange( function () {
 
-						material.color.set( params.color );
-						render();
+						laserMaterial.color.set( params.color );
 
 					} );
 
 				gui.add( params, 'transmission', 0, 1, 0.01 )
 					.onChange( function () {
 
-						material.transmission = params.transmission;
-						render();
+						laserMaterial.transmission = params.transmission;
 
 					} );
 
 				gui.add( params, 'opacity', 0, 1, 0.01 )
 					.onChange( function () {
 
-						material.opacity = params.opacity;
-						render();
+						laserMaterial.opacity = params.opacity;
 
 					} );
 
 				gui.add( params, 'metalness', 0, 1, 0.01 )
 					.onChange( function () {
 
-						material.metalness = params.metalness;
-						render();
+						laserMaterial.metalness = params.metalness;
 
 					} );
 
 				gui.add( params, 'roughness', 0, 1, 0.01 )
 					.onChange( function () {
 
-						material.roughness = params.roughness;
-						render();
+						laserMaterial.roughness = params.roughness;
 
 					} );
 
 				gui.add( params, 'ior', 1, 2, 0.01 )
 					.onChange( function () {
 
-						material.ior = params.ior;
-						render();
+						laserMaterial.ior = params.ior;
 
 					} );
 
 				gui.add( params, 'thickness', 0, 5, 0.01 )
 					.onChange( function () {
 
-						material.thickness = params.thickness;
-						render();
+						laserMaterial.thickness = params.thickness;
 
 					} );
 
 				gui.add( params, 'specularIntensity', 0, 1, 0.01 )
 					.onChange( function () {
 
-						material.specularIntensity = params.specularIntensity;
-						render();
+						laserMaterial.specularIntensity = params.specularIntensity;
 
 					} );
 
 				gui.addColor( params, 'specularColor' )
 					.onChange( function () {
 
-						material.specularColor.set( params.specularColor );
-						render();
+						laserMaterial.specularColor.set( params.specularColor );
 
 					} );
 
@@ -154,8 +143,7 @@ function createGUI(){
 					.name( 'envMap intensity' )
 					.onChange( function () {
 
-						material.envMapIntensity = params.envMapIntensity;
-						render();
+						laserMaterial.envMapIntensity = params.envMapIntensity;
 
 					} );
 
@@ -163,7 +151,6 @@ function createGUI(){
 					.onChange( function () {
 
 						renderer.toneMappingExposure = params.exposure;
-						render();
 
 					} );
 
