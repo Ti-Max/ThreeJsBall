@@ -247,6 +247,31 @@ export function SceneManager(canvas){
         mesh.userData = trimeshShape;
 
         //obstacles
+        for(let i = 0; i < 50; i++){
+            const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color: 'red'}));
+            const cubeBody = new CANNON.Body({
+                type: CANNON.Body.STATIC,
+                shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5))
+            });
+            const pos = getBoxCoords();
+            cube.position.set(pos.x, pos.y, pos.z);
+            cubeBody.position.set(pos.x, pos.y, pos.z);
+
+            scene.add(cube);
+            world.addBody(cubeBody);
+        }
+        function getBoxCoords(){
+            const x = getRandom( -(sX / 2 -1), (sX / 2 -1));
+            const y = posY + 0.5;
+            const z = getRandom(-(sZ / 2 -1), (sZ / 2 -1));
+            const hX = holeX - 10;
+            const hZ = -(holeZ - 10);
+
+            if((Math.abs(hX - x) < 2 && Math.abs(hZ - z) < 2)){
+                return getBoxCoords();
+            }
+            return new CANNON.Vec3(x, y, z);
+        }
     }
 
     function doMovement(){
