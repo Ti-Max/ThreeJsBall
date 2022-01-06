@@ -3,6 +3,11 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as CANNON from 'cannon-es'
 import GUI from 'lil-gui'; 
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { PMREMGenerator } from 'three/src/extras/PMREMGenerator.js'
 
 export function SceneManager(canvas){
 
@@ -53,6 +58,27 @@ export function SceneManager(canvas){
         cameraHeight : 1
     }
 
+    let composer;
+    let laserMaterial;
+    let bloomPass;
+    const params = {
+        color: 0xffffff,
+        transmission: 1,
+        opacity: 1,
+        metalness: 0,
+        roughness: 0,
+        ior: 1.5,
+        thickness: 0.01,
+        specularIntensity: 1,
+        specularColor: 0xffffff,
+        envMapIntensity: 1,
+        lightIntensity: 1,
+        exposure: 1,
+        bloomStrength: 1.5,
+        bloomThreshold: 0,
+        bloomRadius: 0
+    }; 
+
     // Order is important!!
     initPhysics();
     init();
@@ -73,13 +99,28 @@ export function SceneManager(canvas){
 
         renderer.shadowMap.enabled = true;
         scene.background = backroundColor;
+        const envGenerator = new PMREMGenerator(renderer);
+        scene.environment = envGenerator.fromScene(new RoomEnvironment()).texture;
         renderer.setSize(canvas.width, canvas.height);
         
         camera.position.set(0, 10, 20);
-        
+        const renderScene = new RenderPass( scene, camera );
+
+        bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+
+        //bloom
+        bloomPass.threshold = params.bloomThreshold;
+        bloomPass.strength = params.bloomStrength;
+        bloomPass.radius = params.bloomRadius;
+
+        composer = new EffectComposer( renderer );
+        composer.addPass( renderScene );
+        composer.addPass( bloomPass );
         // Order matters!!
         createBall();
         createLights();
+        createLaser();
+        createGUI();
         createGui();
         //creates oplatform with hole in it between 1 to 19 if size is 20
         createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 8, 8);
@@ -137,9 +178,6 @@ export function SceneManager(canvas){
         });
         gui.add(orbitControl, 'minDistance', 0, 50);
         gui.add(orbitControl, 'maxDistance', 0, 50);
-
-
-
     }
 
     /**
@@ -156,30 +194,135 @@ export function SceneManager(canvas){
         pointLight.position.y = camera.position.y;
         pointLight.position.z = camera.position.z;
         scene.add(pointLight); 
-
-
+    }
+    
+    function createLaser(){
+        laserMaterial = new THREE.MeshPhysicalMaterial( {
+            color: params.color,
+            metalness: params.metalness,
+            roughness: params.roughness,
+            ior: params.ior,
+            envMapIntensity: params.envMapIntensity,
+            transmission: params.transmission, // use material.transmission for glass materials
+            specularIntensity: params.specularIntensity,
+            specularColor: params.specularColor,
+            opacity: params.opacity,
+            side: THREE.DoubleSide,
+            transparent: true
+        } );
+        const laserMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 0.2, 10),
+            laserMaterial
+        );
+        laserMesh.position.y = 1;
+        scene.add(laserMesh);
         
-        // //directional light
-        // directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        // directionalLight.position.set(3,30,0);
-        // directionalLight.target.position.set(-3, 0, 0);
-        // directionalLight.castShadow = true;
-        // directionalLight.shadow.mapSize.width = 1024;
-        // directionalLight.shadow.mapSize.height = 1024;
-        
-        // directionalLight.shadow.camera.left = -10;
-        // directionalLight.shadow.camera.right = 10;
-        // directionalLight.shadow.camera.top = 10;
-        // directionalLight.shadow.camera.bottom = -10;
-        // // directionalLight.shadow.camera.near = 0.5; 
-        // // directionalLight.shadow.camera.far = 500;
-        // scene.add(directionalLight.target);
-        // scene.add(directionalLight);
-        // scene.add(new THREE.CameraHelper(directionalLight.shadow.camera));
-
-
     }
 
+    function createGUI(){
+        gui.add( params, 'exposure', 0.1, 2 ).onChange( function ( value ) {
+
+            renderer.toneMappingExposure = Math.pow( value, 4.0 );
+
+        } );
+
+        gui.add( params, 'bloomThreshold', 0.0, 1.0 ).onChange( function ( value ) {
+
+            bloomPass.threshold = Number( value );
+
+        } );
+
+        gui.add( params, 'bloomStrength', 0.0, 3.0 ).onChange( function ( value ) {
+
+            bloomPass.strength = Number( value );
+
+        } );
+
+        gui.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( value ) {
+
+            bloomPass.radius = Number( value );
+
+        } );
+        gui.addColor( params, 'color' )
+            .onChange( function () {
+
+                laserMaterial.color.set( params.color );
+
+            } );
+
+        gui.add( params, 'transmission', 0, 1, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.transmission = params.transmission;
+
+            } );
+
+        gui.add( params, 'opacity', 0, 1, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.opacity = params.opacity;
+
+            } );
+
+        gui.add( params, 'metalness', 0, 1, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.metalness = params.metalness;
+
+            } );
+
+        gui.add( params, 'roughness', 0, 1, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.roughness = params.roughness;
+
+            } );
+
+        gui.add( params, 'ior', 1, 2, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.ior = params.ior;
+
+            } );
+
+        gui.add( params, 'thickness', 0, 5, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.thickness = params.thickness;
+
+            } );
+
+        gui.add( params, 'specularIntensity', 0, 1, 0.01 )
+            .onChange( function () {
+
+                laserMaterial.specularIntensity = params.specularIntensity;
+
+            } );
+
+        gui.addColor( params, 'specularColor' )
+            .onChange( function () {
+
+                laserMaterial.specularColor.set( params.specularColor );
+
+            } );
+
+        gui.add( params, 'envMapIntensity', 0, 1, 0.01 )
+            .name( 'envMap intensity' )
+            .onChange( function () {
+
+                laserMaterial.envMapIntensity = params.envMapIntensity;
+
+            } );
+
+        gui.add( params, 'exposure', 0, 1, 0.01 )
+            .onChange( function () {
+
+                renderer.toneMappingExposure = params.exposure;
+
+            } );
+
+        gui.open();
+    }
     /**
      * 
      * @param {number} posX platform`s x position 
@@ -300,11 +443,6 @@ export function SceneManager(canvas){
         // sphereBody.velocity.x = direction.x * settings.ballSpeed;
         // sphereBody.velocity.z = direction.z * settings.ballSpeed;
     }
-
-    /**
-     *  Calls when a button is pressed or repeat
-    **/
-
     /**
      * Returns random integer between min and max (included min and max)
     **/
@@ -330,7 +468,7 @@ export function SceneManager(canvas){
 
 
         orbitControl.update();
-        renderer.render(scene, camera);
+        composer.render();
     }
 
     this.onWindowResize = function(){
