@@ -124,6 +124,8 @@ export function SceneManager(canvas){
         createGui();
         //creates oplatform with hole in it between 1 to 19 if size is 20
         createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 8, 8);
+
+
     }
 
     function initPhysics(){
@@ -400,9 +402,11 @@ export function SceneManager(canvas){
             cube.position.set(pos.x, pos.y, pos.z);
             cubeBody.position.set(pos.x, pos.y, pos.z);
 
+            cube.layers.set(1);
             scene.add(cube);
             world.addBody(cubeBody);
         }
+
         function getBoxCoords(){
             const x = getRandom( -(sX / 2 -1), (sX / 2 -1));
             const y = posY + 0.5;
@@ -468,7 +472,15 @@ export function SceneManager(canvas){
 
 
         orbitControl.update();
-        composer.render();
+
+        //Render
+        camera.layers.enable(1);
+        // camera.layers.disable(0);
+        // composer.render();
+
+        camera.layers.enable(0);
+        // camera.layers.disable(1);
+        renderer.render(scene, camera);
     }
 
     this.onWindowResize = function(){
@@ -496,6 +508,11 @@ export function SceneManager(canvas){
             movementInput.right = true;
         } else if(event.key === "a"){
             movementInput.left = true;
+        }
+        
+        //Layers
+        if(event.key === "2"){
+            camera.layers.toggle(1);
         }
     }
 
