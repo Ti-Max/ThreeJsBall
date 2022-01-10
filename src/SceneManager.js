@@ -8,6 +8,9 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { PMREMGenerator } from 'three/src/extras/PMREMGenerator.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
+
 
 export function SceneManager(canvas){
 
@@ -100,7 +103,7 @@ export function SceneManager(canvas){
         renderer.shadowMap.enabled = true;
         scene.background = backroundColor;
         const envGenerator = new PMREMGenerator(renderer);
-        scene.environment = envGenerator.fromScene(new RoomEnvironment()).texture;
+        // scene.environment = envGenerator.fromScene(new RoomEnvironment()).texture;
         renderer.setSize(canvas.width, canvas.height);
         
         camera.position.set(0, 10, 20);
@@ -119,9 +122,10 @@ export function SceneManager(canvas){
         // Order matters!!
         createBall();
         createLights();
-        createLaser();
-        createGUI();
+        // createLaser();
+        createGUI();//laser gui
         createGui();
+
         //creates oplatform with hole in it between 1 to 19 if size is 20
         createPlatformWithHole(/*pos*/0, 0, 0,/*size*/ 20, 0.5, 20,/*holes size*/ 0.7, /*hole pos*/ 8, 8);
 
@@ -195,7 +199,27 @@ export function SceneManager(canvas){
         pointLight.position.x = camera.position.x;
         pointLight.position.y = camera.position.y;
         pointLight.position.z = camera.position.z;
-        scene.add(pointLight); 
+        // scene.add(pointLight); \
+
+        //environment maps (only for physicals materials)
+        // new RGBELoader().load("img/086_hdrmaps_com_free.exr",
+        // (texture) =>{
+        //     texture.mapping = THREE.EquirectangularReflectionMapping;
+        //     scene.environment = texture;
+        //     scene.background = texture;
+        //     renderer.toneMappingExposure = 5;
+        //     console.log("loading hdr file");
+        // });
+        new EXRLoader().load("img/086_hdrmaps_com_free.exr",
+        (texture, data) =>{
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            scene.environment = texture;
+            scene.background = texture;
+            renderer.toneMappingExposure = 5;
+            console.log("loading hdr file");
+        });
+        
+
     }
     
     function createLaser(){
@@ -369,7 +393,7 @@ export function SceneManager(canvas){
         indexedGeometry.rotateX(Math.PI * -0.5);
 
         // Making an THREE.Object3D and adding to the scene
-        const material = new THREE.MeshPhongMaterial({color: platformColor});
+        const material = new THREE.MeshStandardMaterial({color: platformColor, roughness: 0});
         const mesh = new THREE.Mesh(indexedGeometry, material);
         mesh.receiveShadow = true;
         mesh.castShadow = true;
